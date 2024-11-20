@@ -1,0 +1,21 @@
+{
+  "name": "chatbot-project",
+  "version": "1.0.0",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js"
+  },
+  "dependencies": {
+    "18": "^0.0.0",
+    "@huggingface/hub": "^0.21.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "express-session": "^1.18.1",
+    "onnxruntime-node": "^1.20.0",
+    "openapi": "^1.0.1",
+    "sqlite3": "^5.1.7",
+    "tokenizers": "^0.13.3",
+    "transformers": "^1.8.3"
+  }
+}

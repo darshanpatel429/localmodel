@@ -1,70 +1,51 @@
-import os
-import sys
-import json
-import numpy as np
-import onnxruntime as ort
-from transformers import AutoTokenizer
+from sentence_transformers import SentenceTransformer, util
+import pickle
+import torch
 
-# Load the tokenizer (absolute path)
-tokenizer = AutoTokenizer.from_pretrained(os.path.abspath("./trained_model"))
-tokenizer.pad_token = tokenizer.eos_token  # Ensure pad_token is set
+# Load the same SentenceTransformer model used in preprocessing
+model = SentenceTransformer('all-MiniLM-L6-v2')  # Replace with the actual model name
 
-# Load the ONNX model (absolute path)
-session = ort.InferenceSession(
-    os.path.abspath("./trained_model/onnx/model.onnx"),
-    providers=["CUDAExecutionProvider", "CPUExecutionProvider"]  # Adjust based on environment
-)
+# Load embeddings and metadata
+with open("./trained_model/embeddings.pkl", "rb") as f:
+    embeddings, texts, metadata = pickle.load(f)
+    embeddings = torch.tensor(embeddings, dtype=torch.float32)  # Convert to PyTorch FloatTensor
 
-def generate_response(input_text):
-    # Tokenize the input
-    inputs = tokenizer(
-        input_text,
-        return_tensors="np",  # NumPy arrays for ONNX Runtime
-        padding=True,
-        truncation=True
-    )
+# Choose device: GPU if available, otherwise CPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Prepare the ONNX inputs
-    onnx_inputs = {
-        "input_ids": inputs["input_ids"],
-        "attention_mask": inputs["attention_mask"]
-    }
+# Move embeddings to the chosen device
+embeddings = embeddings.to(device)
+model = model.to(device)  # Ensure the model also uses the same device
 
-    # Add placeholders for past_key_values
-    for i in range(32):  # Assuming 32 transformer layers for LLaMA
-        onnx_inputs[f"past_key_values.{i}.key"] = np.zeros((1, 32, 0, 128), dtype=np.float32)  # Adjust size as needed
-        onnx_inputs[f"past_key_values.{i}.value"] = np.zeros((1, 32, 0, 128), dtype=np.float32)  # Adjust size as needed
+def retrieve_response(query):
+    # Generate the embedding for the query using the SentenceTransformer model
+    query_embedding = model.encode(query, convert_to_tensor=True, device=device)
 
-    # Generate position IDs (optional)
-    onnx_inputs["position_ids"] = np.arange(inputs["input_ids"].shape[1], dtype=np.int64).reshape(1, -1)
+    # Compute cosine similarities
+    scores = util.cos_sim(query_embedding, embeddings)[0]
+    top_idx = scores.argmax()
 
-    # Run inference
-    outputs = session.run(None, onnx_inputs)
+    # Threshold for unknown responses
+    if scores[top_idx] >= 0.4:
+        return f"{texts[top_idx]}\n\nReference: {metadata[top_idx]['url']}"
+    else:
+        return "I'm sorry, I don't have enough information to answer that."
 
-    # Decode the output logits
-    logits = outputs[0]
-    predicted_ids = np.argmax(logits, axis=-1)
-    response = tokenizer.decode(predicted_ids[0], skip_special_tokens=True)
-
-    return response
 
 if __name__ == "__main__":
-    # Read input from stdin
+    import sys
+    import json
+
     input_data = sys.stdin.read()
     try:
-        # Parse JSON input
+        # Parse the JSON input
         data = json.loads(input_data)
         user_query = data.get("message", "")
 
-        # Generate response
-        response = generate_response(user_query)
+        # Generate a response
+        response = retrieve_response(user_query)
 
-        # Return output as JSON
-        result = {"response": response}
-        print(json.dumps(result))  # Output JSON
-        sys.stdout.flush()
+        # Output the response as JSON
+        print(json.dumps({"response": response}))
     except Exception as e:
-        # Handle errors gracefully
-        error_result = {"error": str(e)}
-        print(json.dumps(error_result))
-        sys.stdout.flush()
+        print(json.dumps({"error": str(e)}))

@@ -13,24 +13,22 @@ This project is a chatbot interface that utilizes the OpenAI API to handle user 
 ## Installation
 
 1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/tabouakar/Frontend_Test.git
-   cd Frontend_Test
-   ```
+
 
 2. **Install dependencies:**
    Navigate to the project root directory and install the necessary packages.
    ```bash
    npm install
    ```
-
-3. **Set up environment variables:**
-
-   Create a `.env` file in the project root directory and add your OpenAI API key along with any other necessary environment variables.
-
+   ```bash
+   pip install -r requirements.txt
    ```
-   OPENAI_API_KEY=your_openai_api_key_here
-   ASSISTANT_ID=your_assistant_id_here
+3. **Run Models**
+   Navigate to the project root directory and install the necessary packages.
+   ```bash
+   python preprocessing.py
+   python training.py
+   python inference.py
    ```
 
 ## Project Structure
@@ -39,7 +37,9 @@ This project is a chatbot interface that utilizes the OpenAI API to handle user 
 - `styles.css`: Styles for the frontend.
 - `app.js`: Frontend JavaScript for handling user input and displaying messages.
 - `server.js`: Backend server handling requests and communicating with the OpenAI API.
-- `.env`: Environment variables for sensitive information like API keys (should not be shared).
+- `backend/preprocessing.py`: Script for preparing data and generating embeddings.
+- `backend/training.py`: Script for training the model and saving embeddings.
+- `backend/inference.py`: Script for loading embeddings and generating responses based on user queries.
 
 ## Running the Project
 
@@ -58,12 +58,10 @@ The backend requires the following Node.js packages:
 
 - `express`: Web framework for Node.js.
 - `cors`: Middleware to allow cross-origin requests.
-- `dotenv`: For loading environment variables from `.env`.
-- `openai`: For interacting with the OpenAI API.
 
 Install these packages by running:
 ```bash
-npm install express cors dotenv openai
+npm install express cors 
 ```
 
 ## Notes

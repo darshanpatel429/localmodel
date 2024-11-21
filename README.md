@@ -1,7 +1,7 @@
 
 # Frontend_Test Project
 
-This project is a chatbot interface that utilizes the OpenAI API to handle user interactions. The project consists of a frontend (HTML, CSS, and JavaScript) and a backend server built with Node.js and Express, with OpenAI API integration for conversational responses.
+This project is a chatbot interface that utilizes a local models. The project consists of a frontend (HTML, CSS, and JavaScript) and a backend server built with Node.js and Express.
 
 ## Prerequisites
 

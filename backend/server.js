@@ -9,7 +9,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
 // Session management for logging
 app.use(
     session({
@@ -18,8 +17,9 @@ app.use(
         saveUninitialized: true,
     })
 );
+
 // Serve static files from the frontend directory
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, "../frontend")));
 
 // Configure SQLite database
 const db = new sqlite3.Database("chat.logs");
@@ -32,13 +32,13 @@ db.serialize(() => {
     )`);
 });
 
-// Generate response using Python
+// Generate response using Python (local_rag.py)
 async function generateResponse(userInput) {
     return new Promise((resolve, reject) => {
-        const pythonProcess = spawn("python3", [path.join(__dirname, "inference.py")]);
+        const pythonProcess = spawn("python3", [path.join(__dirname, "local_rag.py")]);
 
         // Send user input to the Python script
-        pythonProcess.stdin.write(JSON.stringify({ message: userInput }));
+        pythonProcess.stdin.write(JSON.stringify({ query: userInput }));
         pythonProcess.stdin.end();
 
         let result = "";
@@ -56,11 +56,13 @@ async function generateResponse(userInput) {
 
         // Handle process close
         pythonProcess.on("close", (code) => {
-            if (code !== 0 || error) {
-                console.error("Python Error:", error);
-                reject(new Error(error || "Python script exited with an error."));
+            if (code !== 0) {
+                console.error(`Python script exited with code ${code}.`);
+                console.error("Python Error Output:", error);
+                reject(new Error("Python script failed. Check logs for details."));
                 return;
             }
+
             try {
                 const jsonResponse = JSON.parse(result);
                 if (jsonResponse.error) {
@@ -70,7 +72,7 @@ async function generateResponse(userInput) {
                 }
             } catch (parseError) {
                 console.error("Failed to parse Python response:", parseError);
-                reject(new Error("Failed to parse Python response."));
+                reject(new Error("Invalid response from Python script."));
             }
         });
     });
@@ -90,12 +92,16 @@ app.post("/api/chat", async (req, res) => {
         const stmt = db.prepare(
             "INSERT INTO Logs (SessionID, UserQuery, Response) VALUES (?, ?, ?)"
         );
-        stmt.run(req.sessionID, userInput, assistantResponse);
+        stmt.run(req.sessionID, userInput, assistantResponse, (err) => {
+            if (err) {
+                console.error("Failed to log to database:", err);
+            }
+        });
 
         res.json({ response: assistantResponse });
     } catch (error) {
-        console.error("Error generating response:", error);
-        res.status(500).send("Internal Server Error");
+        console.error("Error generating response:", error.message);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 });
 
@@ -135,6 +141,7 @@ app.delete("/api/deleteAllLogs", (req, res) => {
     });
 });
 
+// Start the server
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
